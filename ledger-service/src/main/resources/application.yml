@@ -39,3 +39,11 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+tallyforge:
+  topics:
+    ledger-events: tallyforge.ledger.events
+    webhooks-dlq: tallyforge.webhooks.dlq
+  outbox:
+    relay-enabled: true
+    poll-interval-ms: 200

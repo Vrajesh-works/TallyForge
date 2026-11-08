@@ -5,6 +5,7 @@ import dev.tallyforge.ledger.account.AccountRepository;
 import dev.tallyforge.ledger.account.EntryPhase;
 import dev.tallyforge.ledger.account.EntrySide;
 import dev.tallyforge.ledger.common.ApiException;
+import dev.tallyforge.ledger.outbox.OutboxService;
 import dev.tallyforge.ledger.transfer.TransferDtos.TransferResponse;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -26,12 +27,17 @@ public class LedgerService {
   private final AccountRepository accounts;
   private final TransferRepository transfers;
   private final JournalEntryRepository entries;
+  private final OutboxService outbox;
 
   public LedgerService(
-      AccountRepository accounts, TransferRepository transfers, JournalEntryRepository entries) {
+      AccountRepository accounts,
+      TransferRepository transfers,
+      JournalEntryRepository entries,
+      OutboxService outbox) {
     this.accounts = accounts;
     this.transfers = transfers;
     this.entries = entries;
+    this.outbox = outbox;
   }
 
   /** A request to move money from the debit account to the credit account. */
@@ -73,7 +79,7 @@ public class LedgerService {
     transfers.save(transfer);
     move(transfer, debit, credit, pending ? EntryPhase.PENDING : EntryPhase.POSTED, cmd.amount());
     checkConstraints(debit, credit);
-    return TransferResponse.from(transfer);
+    return publish(transfer, pending ? "transfer.pending" : "transfer.posted");
   }
 
   /** Post a pending transfer. {@code amount} null means the full held amount. */
@@ -91,7 +97,7 @@ public class LedgerService {
     move(transfer, debit, credit, EntryPhase.POSTED, toPost);
     transfer.markPosted(toPost);
     checkConstraints(debit, credit);
-    return TransferResponse.from(transfer);
+    return publish(transfer, "transfer.posted");
   }
 
   /** Release a pending transfer without moving any money. */
@@ -102,7 +108,7 @@ public class LedgerService {
     Account credit = load(transfer.getCreditAccountId());
     move(transfer, debit, credit, EntryPhase.PENDING, -transfer.getAmount());
     transfer.markVoided();
-    return TransferResponse.from(transfer);
+    return publish(transfer, "transfer.voided");
   }
 
   /**
@@ -142,7 +148,14 @@ public class LedgerService {
     original.addRefunded(amount);
     move(refund, debit, credit, EntryPhase.POSTED, amount);
     checkConstraints(debit, credit);
-    return TransferResponse.from(refund);
+    return publish(refund, "transfer.refunded");
+  }
+
+  /** Record the event in the outbox; it commits or rolls back with the ledger rows. */
+  private TransferResponse publish(Transfer transfer, String eventType) {
+    TransferResponse response = TransferResponse.from(transfer);
+    outbox.append("transfer", transfer.getId(), eventType, response);
+    return response;
   }
 
   private void move(Transfer t, Account debit, Account credit, EntryPhase phase, long delta) {
