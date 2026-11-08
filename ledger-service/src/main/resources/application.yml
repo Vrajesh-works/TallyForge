@@ -47,3 +47,10 @@ tallyforge:
   outbox:
     relay-enabled: true
     poll-interval-ms: 200
+  webhooks:
+    dispatcher-enabled: true
+    max-attempts: 6
+    base-delay: PT2S
+    max-delay: PT10M
+    timeout: PT5S
+    poll-interval-ms: 500
