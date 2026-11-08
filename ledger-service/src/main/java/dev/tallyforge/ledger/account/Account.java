@@ -35,7 +35,7 @@ public class Account {
   private long creditsPending;
   private long creditsPosted;
 
-  @Version private long version;
+  @Version private Long version;
 
   @Column(nullable = false, updatable = false)
   private Instant createdAt;
@@ -120,10 +120,6 @@ public class Account {
 
   public long getCreditsPosted() {
     return creditsPosted;
-  }
-
-  public long getVersion() {
-    return version;
   }
 
   public Instant getCreatedAt() {

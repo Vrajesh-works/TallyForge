@@ -41,7 +41,7 @@ public class Transfer {
   private String holdReason;
   private String reference;
 
-  @Version private long version;
+  @Version private Long version;
 
   @Column(nullable = false, updatable = false)
   private Instant createdAt;
