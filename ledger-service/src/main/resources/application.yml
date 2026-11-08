@@ -54,3 +54,5 @@ tallyforge:
     max-delay: PT10M
     timeout: PT5S
     poll-interval-ms: 500
+  reconciliation:
+    cron: "0 0 2 * * *"
