@@ -109,6 +109,8 @@ Amounts are `bigint` minor units (cents). No floating point anywhere in money pa
 
 ## Milestones (today)
 
+All fifteen landed on 2026-11-08; nothing from this list was deferred.
+
 1. Product doc and plan (this file).
 2. Service scaffold: Maven wrapper, Spring Boot 3, Flyway, PostgreSQL, Testcontainers base test.
 3. Accounts, transfers, journal entries, holds (post/void), refunds.
@@ -132,8 +134,8 @@ Amounts are `bigint` minor units (cents). No floating point anywhere in money pa
 | Unit | JUnit 5, AssertJ | Payment transition table, webhook signature and verification, backoff schedule, fraud rules, request hashing. Run without Docker. |
 | Integration | Spring Boot Test, Testcontainers (PostgreSQL, Redpanda) | Transfer API, holds, refunds, balance constraints, idempotent retries (sequential and concurrent), outbox relay to a real broker, webhook delivery to a local HTTP server with retries and DLQ, reconciliation detects injected drift. |
 | Concurrency | JUnit 5 + `ExecutorService` against Testcontainers PostgreSQL | Many threads transferring among accounts: total money unchanged, no account violates its constraint, journal debits equal credits. |
-| Frontend | Vitest, ESLint, `tsc --noEmit` | CSV export formatting, filter query building, type safety. |
-| Load (stretch) | k6 + PaySim-shaped CSV | p95 latency of the transfer endpoint. |
+| Frontend | Vitest, ESLint, `tsc --noEmit` | Exact money formatting, amount parsing, filter query building, type safety. CSV export is server-side and covered by a unit test (escaping, formula neutralising) and an integration test. |
+| Load (stretch) | k6 + PaySim-shaped CSV | p95 latency of the transfer endpoint (results in the README). |
 
 CI runs all of the above on every pull request and push to `main`
 (GitHub-hosted runners provide Docker for Testcontainers).
