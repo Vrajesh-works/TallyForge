@@ -37,9 +37,12 @@ public class FraudRules {
     if (amount >= props.largeAmount()) {
       reasons.add(LARGE_AMOUNT);
     }
-    if (debit.getFlags() == AccountFlags.DEBITS_MUST_NOT_EXCEED_CREDITS
-        && amount >= props.drainMinAmount()
-        && amount == debit.available()) {
+    // Drain and velocity rules target customer wallets. Settlement and cash accounts are
+    // unconstrained and move money all day by design, so they are only screened on amount.
+    if (debit.getFlags() != AccountFlags.DEBITS_MUST_NOT_EXCEED_CREDITS) {
+      return reasons;
+    }
+    if (amount >= props.drainMinAmount() && amount == debit.available()) {
       reasons.add(DRAINS_ACCOUNT);
     }
     long recent =

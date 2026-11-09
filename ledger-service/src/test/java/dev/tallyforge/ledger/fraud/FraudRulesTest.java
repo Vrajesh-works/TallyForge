@@ -67,6 +67,14 @@ class FraudRulesTest {
   }
 
   @Test
+  void settlementAccountsAreOnlyScreenedOnAmount() {
+    Account bank = new Account(UUID.randomUUID(), "b", "Bank", "USD", AccountFlags.NONE);
+    when(transfers.countByDebitAccountIdAndCreatedAtAfter(eq(bank.getId()), any()))
+        .thenReturn(10_000L);
+    assertThat(rules.screenTransfer(bank, 100)).isEmpty();
+  }
+
+  @Test
   void disabledRulesNeverHold() {
     FraudRules off =
         new FraudRules(new FraudProperties(false, 1, 1, 1, Duration.ofMinutes(1)), transfers);
