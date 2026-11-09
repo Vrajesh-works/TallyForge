@@ -3,6 +3,7 @@ package dev.tallyforge.ledger.payment;
 import dev.tallyforge.ledger.account.Account;
 import dev.tallyforge.ledger.account.AccountRepository;
 import dev.tallyforge.ledger.common.ApiException;
+import dev.tallyforge.ledger.fraud.FraudRules;
 import dev.tallyforge.ledger.outbox.OutboxService;
 import dev.tallyforge.ledger.payment.PaymentDtos.CreatePaymentRequest;
 import dev.tallyforge.ledger.payment.PaymentDtos.PaymentResponse;
@@ -12,6 +13,7 @@ import dev.tallyforge.ledger.payment.gateway.RetryingGateway;
 import dev.tallyforge.ledger.payment.gateway.TransientGatewayException;
 import dev.tallyforge.ledger.transfer.LedgerService;
 import dev.tallyforge.ledger.transfer.LedgerService.TransferCommand;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,7 @@ public class PaymentService {
   private final PaymentGateway gateway;
   private final RetryingGateway retry;
   private final OutboxService outbox;
+  private final FraudRules fraud;
 
   public PaymentService(
       PaymentRepository payments,
@@ -48,7 +51,8 @@ public class PaymentService {
       LedgerService ledger,
       PaymentGateway gateway,
       RetryingGateway retry,
-      OutboxService outbox) {
+      OutboxService outbox,
+      FraudRules fraud) {
     this.payments = payments;
     this.events = events;
     this.accounts = accounts;
@@ -56,6 +60,7 @@ public class PaymentService {
     this.gateway = gateway;
     this.retry = retry;
     this.outbox = outbox;
+    this.fraud = fraud;
   }
 
   public PaymentResponse create(UUID paymentId, CreatePaymentRequest req) {
@@ -104,12 +109,26 @@ public class PaymentService {
                 req.amount(),
                 true,
                 "payment:" + paymentId,
-                null));
+                false));
     payment.authorized(auth.reference(), hold.id());
+    List<String> reasons = fraud.screenPayment(req.amount());
+    if (!reasons.isEmpty()) {
+      payment.flagForReview(String.join(",", reasons));
+      transition(payment, PaymentStatus.REQUIRES_REVIEW, payment.getReviewReason());
+      return publish(payment, "payment.requires_review");
+    }
     transition(payment, PaymentStatus.AUTHORIZED, auth.reference());
     if (req.capture()) {
       return capture(paymentId, null);
     }
+    return publish(payment, "payment.authorized");
+  }
+
+  /** A reviewer clears a held payment; it can then be captured like any authorization. */
+  public PaymentResponse approve(UUID paymentId) {
+    Payment payment = load(paymentId);
+    payment.requireStatus(PaymentStatus.REQUIRES_REVIEW);
+    transition(payment, PaymentStatus.AUTHORIZED, "approved by review");
     return publish(payment, "payment.authorized");
   }
 

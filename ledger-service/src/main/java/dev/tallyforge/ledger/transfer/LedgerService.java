@@ -5,8 +5,10 @@ import dev.tallyforge.ledger.account.AccountRepository;
 import dev.tallyforge.ledger.account.EntryPhase;
 import dev.tallyforge.ledger.account.EntrySide;
 import dev.tallyforge.ledger.common.ApiException;
+import dev.tallyforge.ledger.fraud.FraudRules;
 import dev.tallyforge.ledger.outbox.OutboxService;
 import dev.tallyforge.ledger.transfer.TransferDtos.TransferResponse;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,26 +30,32 @@ public class LedgerService {
   private final TransferRepository transfers;
   private final JournalEntryRepository entries;
   private final OutboxService outbox;
+  private final FraudRules fraud;
 
   public LedgerService(
       AccountRepository accounts,
       TransferRepository transfers,
       JournalEntryRepository entries,
-      OutboxService outbox) {
+      OutboxService outbox,
+      FraudRules fraud) {
     this.accounts = accounts;
     this.transfers = transfers;
     this.entries = entries;
     this.outbox = outbox;
+    this.fraud = fraud;
   }
 
-  /** A request to move money from the debit account to the credit account. */
+  /**
+   * A request to move money from the debit account to the credit account. {@code screen} runs the
+   * fraud rules; a flagged transfer is created PENDING with a hold reason for manual review.
+   */
   public record TransferCommand(
       UUID debitAccountId,
       UUID creditAccountId,
       long amount,
       boolean pending,
       String reference,
-      String holdReason) {}
+      boolean screen) {}
 
   public TransferResponse create(TransferCommand cmd) {
     if (cmd.amount() <= 0) {
@@ -63,7 +71,12 @@ public class LedgerService {
       throw ApiException.unprocessable(
           "currency_mismatch", "accounts have different currencies, FX is not supported");
     }
-    boolean pending = cmd.pending() || cmd.holdReason() != null;
+    String holdReason = null;
+    if (cmd.screen()) {
+      List<String> reasons = fraud.screenTransfer(debit, cmd.amount());
+      holdReason = reasons.isEmpty() ? null : String.join(",", reasons);
+    }
+    boolean pending = cmd.pending() || holdReason != null;
     Transfer transfer =
         new Transfer(
             UUID.randomUUID(),
@@ -74,7 +87,7 @@ public class LedgerService {
             TransferKind.TRANSFER,
             pending ? TransferStatus.PENDING : TransferStatus.POSTED,
             null,
-            cmd.holdReason(),
+            holdReason,
             cmd.reference());
     transfers.save(transfer);
     move(transfer, debit, credit, pending ? EntryPhase.PENDING : EntryPhase.POSTED, cmd.amount());

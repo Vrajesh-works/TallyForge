@@ -48,7 +48,7 @@ public class TransferController {
             req.amount(),
             req.pending(),
             req.reference(),
-            null);
+            true);
     return idempotency.execute(
         "transfer.create", key, req, HttpStatus.CREATED, () -> ledger.create(cmd));
   }

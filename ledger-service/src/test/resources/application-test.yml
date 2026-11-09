@@ -9,3 +9,8 @@ tallyforge:
     max-delay: PT0.5S
     timeout: PT2S
     poll-interval-ms: 100
+  fraud:
+    large-amount: 5000000
+    drain-min-amount: 50000
+    # Concurrency tests fire hundreds of transfers per minute from one account.
+    velocity-max: 100000

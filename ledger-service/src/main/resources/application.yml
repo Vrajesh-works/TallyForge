@@ -56,3 +56,9 @@ tallyforge:
     poll-interval-ms: 500
   reconciliation:
     cron: "0 0 2 * * *"
+  fraud:
+    enabled: true
+    large-amount: 1000000
+    drain-min-amount: 100000
+    velocity-max: 20
+    velocity-window: PT1M

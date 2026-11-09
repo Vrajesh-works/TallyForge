@@ -91,6 +91,14 @@ public class PaymentController {
         () -> service.capture(id, amount));
   }
 
+  @PostMapping("/{id}/approve")
+  public ResponseEntity<Object> approve(
+      @RequestHeader(name = IdempotencyService.HEADER, required = false) String key,
+      @PathVariable UUID id) {
+    return idempotency.execute(
+        "payment.approve", key, id, HttpStatus.OK, () -> service.approve(id));
+  }
+
   @PostMapping("/{id}/void")
   public ResponseEntity<Object> voidPayment(
       @RequestHeader(name = IdempotencyService.HEADER, required = false) String key,
