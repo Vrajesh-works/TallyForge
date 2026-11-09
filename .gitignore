@@ -36,3 +36,6 @@ coverage/
 *.iml
 .claude/
 .env
+
+# Generated PaySim-shaped replay data
+paysim-sample.csv
