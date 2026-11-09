@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public final class TransferDtos {
@@ -55,4 +56,7 @@ public final class TransferDtos {
           t.getUpdatedAt());
     }
   }
+
+  /** One page of a transfer listing, newest first. */
+  public record TransferPage(List<TransferResponse> items, int page, int size, long total) {}
 }
